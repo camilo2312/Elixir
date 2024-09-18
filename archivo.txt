@@ -1,0 +1,4 @@
+Error, se espera que ingrese un error número entero 
+
+Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='cp1252'>
+OSError: [Errno 22] Invalid argument
