@@ -1,9 +1,17 @@
 defmodule Estructuras do
+  # def main do
+  #   "clientes.csv"
+  #   |> Cliente.leer_csv()
+  #   |> filtrar_datos_clientes()
+  #   |> Cliente.generar_mensaje_clientes(&generar_mensaje/1)
+  #   |> Util.mostrar_mensaje()
+  # end
+
   def main do
     "clientes.csv"
-    |> Cliente.leer_csv()
+    |> CSVData.leer_csv(&Cliente.convertir_cadena_cliente/1)
     |> filtrar_datos_clientes()
-    |> Cliente.generar_mensaje_clientes(&generar_mensaje/1)
+    |> CSVData.generar_mensaje(&generar_mensaje/1)
     |> Util.mostrar_mensaje()
   end
 

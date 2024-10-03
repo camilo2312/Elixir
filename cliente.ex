@@ -63,14 +63,14 @@ defmodule Cliente do
     "#{cliente.nombre},#{cliente.edad},#{cliente.altura}"
   end
 
-  def leer_csv(nombre) do
-    nombre
-    |> File.stream!()
-    |> Stream.drop(1) #ignora los encabezados
-    |> Enum.map(&convertir_cadena_cliente/1)
-  end
+  # def leer_csv(nombre) do
+  #   nombre
+  #   |> File.stream!()
+  #   |> Stream.drop(1) #ignora los encabezados
+  #   |> Enum.map(&convertir_cadena_cliente/1)
+  # end
 
-  defp convertir_cadena_cliente(cadena) do
+  def convertir_cadena_cliente(cadena) do
     [nombre, edad, altura] =
       cadena
       |> String.split(",")
