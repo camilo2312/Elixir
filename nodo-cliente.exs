@@ -19,7 +19,7 @@ defmodule NodoCliente do
   def registrar_servicio(nombre_servicio_local),
     do: Process.register(self(), nombre_servicio_local)
 
-  defp verificar_conexio(nodo_remoto),
+  defp verificar_conexion(nodo_remoto),
     do: Node.connect(nodo_remoto)
 
   defp activar_productor(:true) do
@@ -27,6 +27,36 @@ defmodule NodoCliente do
     recibir_respuestas()
   end
 
-  defp activiar_productor(:false),
+  defp activar_productor(:false),
     do: Util.mostrar_error("No se pudo conectar con el nodo servidor")
+
+  defp producir_elementos() do
+    mensajes = [
+      {:mayusculas, "Juan"},
+      {:mayusculas, "Ana"},
+      {:minusculas, "Diana"},
+      {&String.reverse/1, "Julian"},
+      "Uniquindio",
+      :fin
+    ]
+
+    Enum.each(mensajes, &enviar_mensaje(&1))
+  end
+
+  defp enviar_mensaje(mensaje) do
+    send(@servicio_remoto, {@servicio_local, mensaje})
+  end
+
+  defp recibir_respuestas() do
+    receive do
+      :fin ->
+        :ok
+
+      respuesta ->
+        Util.mostrar_mensaje("\t -> \"#{respuesta}")
+        recibir_respuestas()
+    end
+  end
 end
+
+NodoCliente.main()

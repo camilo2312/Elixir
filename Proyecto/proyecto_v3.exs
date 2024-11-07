@@ -1,4 +1,4 @@
-defmodule CNFReaderV2 do
+defmodule CNFReaderV3 do
   defstruct variables: 0, clauses_count: 0, clauses: []
   @cant_hilos 15
 
@@ -72,23 +72,29 @@ defmodule CNFReaderV2 do
 
   defp get_valid_values({:ok, cnf}) do
     max_value = trunc(:math.pow(2, cnf.variables)) - 1
+    range = div(max_value, @cant_hilos)
+    tasks =
+      for i <- 0..(@cant_hilos - 1) do
+        init_value = i * range
+        end_value = if i == @cant_hilos - 1, do: max_value, else: init_value + range - 1
 
-    valid_assignments_tasks =
-      for x <- 0..max_value do
         Task.async(fn ->
-          assignment = integer_to_assignment(x, cnf.variables)
-          if satisfies_all?(cnf.clauses, assignment) do
-            assignment_to_binary(assignment, cnf.variables)
-          else
-            nil
-          end
+          Enum.reduce(init_value..end_value, [], fn x, acc ->
+            assignment = integer_to_assignment(x, cnf.variables)
+            if satisfies_all?(cnf.clauses, assignment) do
+              [assignment_to_binary(assignment, cnf.variables) | acc]
+            else
+              acc
+            end
+          end)
         end)
       end
 
-    valid_assignments_tasks
+    tasks
     |> Enum.map(&Task.await/1)
-    |> Enum.reject(&is_nil/1)
+    |> List.flatten()
   end
+
 
   defp integer_to_assignment(integer, variables) do
     0..(variables - 1)
@@ -121,4 +127,4 @@ defmodule CNFReaderV2 do
   end
 end
 
-CNFReaderV2.main()
+CNFReaderV3.main()
