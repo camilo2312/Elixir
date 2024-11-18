@@ -1,22 +1,40 @@
 defmodule CNFReaderV3 do
-  defstruct variables: 0, clauses_count: 0, clauses: []
-  @cant_hilos 15
+  @moduledoc """
+  Módulo para procesar archivos CNF, encontrar asignaciones de variables que satisfacen las cláusulas
+  y optimizar el cálculo mediante paralelismo.
+  """
 
+  defstruct variables: 0, clauses_count: 0, clauses: []
+  @cant_hilos 8
+
+  @doc """
+  Punto de entrada principal del programa. Lee el archivo CNF, busca asignaciones válidas
+  y genera un mensaje con los resultados.
+  """
   def main do
-    :observer.start()
-    "uf20-01.cnf"
+    "uf20-01000.cnf"
     |> read_cnf_file()
     |> measure_get_valid_values()
     |> generate_message()
     |> IO.puts()
   end
 
+  @doc """
+  Lee un archivo CNF y lo convierte en una estructura CNFReaderV3.
+
+  ## Parámetros
+  - `file_path`: Ruta al archivo CNF.
+
+  ## Retorno
+  - `{:ok, %CNFReaderV3{}}` si el archivo fue leído y procesado correctamente.
+  - `{:error, reason}` si ocurrió un error al leer el archivo.
+  """
   def read_cnf_file(file_path) do
     case File.read(file_path) do
       {:ok, content} ->
         content
         |> String.split("\n")
-        |> Enum.reduce(%CNFReaderV2{}, &process_line/2)
+        |> Enum.reduce(%CNFReaderV3{}, &process_line/2)
         |> validate_cnf()
 
       {:error, reason} ->
@@ -24,13 +42,31 @@ defmodule CNFReaderV3 do
     end
   end
 
+  @doc """
+  Mide el tiempo de ejecución de `get_valid_values/1` y devuelve los resultados.
 
+  ## Parámetros
+  - `cnf`: Una estructura `{:ok, %CNFReaderV3{}}`.
+
+  ## Retorno
+  - Lista de asignaciones válidas.
+  """
   defp measure_get_valid_values({:ok, cnf}) do
     {time, result} = :timer.tc(fn -> get_valid_values({:ok, cnf}) end)
     IO.puts("Tiempo de ejecución de get_valid_values: #{time / 1_000_000} segundos")
     result
   end
 
+  @doc """
+  Procesa una línea del archivo CNF y actualiza la estructura CNFReaderV3.
+
+  ## Parámetros
+  - `line`: Línea del archivo CNF.
+  - `acc`: Acumulador de tipo `%CNFReaderV3{}`.
+
+  ## Retorno
+  - Estructura CNFReaderV3 actualizada.
+  """
   defp process_line(line, acc) do
     cond do
       String.starts_with?(line, "c") -> acc
@@ -42,16 +78,37 @@ defmodule CNFReaderV3 do
     end
   end
 
+  @doc """
+  Parsea la línea de problema del archivo CNF, que contiene el número de variables y cláusulas.
+
+  ## Parámetros
+  - `line`: Línea de problema.
+  - `acc`: Acumulador de tipo `%CNFReaderV3{}`.
+
+  ## Retorno
+  - Estructura CNFReaderV3 actualizada.
+  """
   defp parse_problem_line(line, acc) do
     case String.split(line) do
       ["p", "cnf", vars, clauses] ->
         %{acc | variables: String.to_integer(vars), clauses_count: String.to_integer(clauses)}
+
       _ ->
         IO.puts("Línea de problema malformada: #{line}")
         acc
     end
   end
 
+  @doc """
+  Parsea una línea que representa una cláusula lógica y la agrega a la estructura CNFReaderV3.
+
+  ## Parámetros
+  - `line`: Línea de cláusula.
+  - `acc`: Acumulador de tipo `%CNFReaderV3{}`.
+
+  ## Retorno
+  - Estructura CNFReaderV3 actualizada.
+  """
   defp parse_clause(line, acc) do
     literals =
       line
@@ -62,6 +119,16 @@ defmodule CNFReaderV3 do
     %{acc | clauses: acc.clauses ++ [literals]}
   end
 
+  @doc """
+  Valida que el número de cláusulas coincida con el especificado en la línea de problema.
+
+  ## Parámetros
+  - `cnf`: Estructura `%CNFReaderV3{}`.
+
+  ## Retorno
+  - `{:ok, %CNFReaderV3{}}` si es válido.
+  - `{:error, reason}` en caso contrario.
+  """
   defp validate_cnf(cnf) do
     if cnf.clauses_count == length(cnf.clauses) do
       {:ok, cnf}
@@ -70,9 +137,20 @@ defmodule CNFReaderV3 do
     end
   end
 
+  @doc """
+  Encuentra todas las asignaciones de variables que satisfacen las cláusulas del archivo CNF
+  utilizando paralelismo.
+
+  ## Parámetros
+  - `cnf`: Estructura `{:ok, %CNFReaderV3{}}`.
+
+  ## Retorno
+  - Lista de asignaciones válidas en formato binario.
+  """
   defp get_valid_values({:ok, cnf}) do
     max_value = trunc(:math.pow(2, cnf.variables)) - 1
     range = div(max_value, @cant_hilos)
+
     tasks =
       for i <- 0..(@cant_hilos - 1) do
         init_value = i * range
@@ -91,11 +169,20 @@ defmodule CNFReaderV3 do
       end
 
     tasks
-    |> Enum.map(&Task.await/1)
+    |> Enum.map(&Task.await(&1, 6_000_000))
     |> List.flatten()
   end
 
+  @doc """
+  Convierte un entero a un mapa de asignaciones de variables.
 
+  ## Parámetros
+  - `integer`: Número entero que representa la asignación.
+  - `variables`: Cantidad de variables.
+
+  ## Retorno
+  - Mapa con las asignaciones.
+  """
   defp integer_to_assignment(integer, variables) do
     0..(variables - 1)
     |> Enum.map(fn i ->
@@ -104,12 +191,32 @@ defmodule CNFReaderV3 do
     |> Map.new()
   end
 
+  @doc """
+  Convierte un mapa de asignaciones a un binario (cadena de ceros y unos).
+
+  ## Parámetros
+  - `assignment`: Mapa de asignaciones.
+  - `variables`: Cantidad de variables.
+
+  ## Retorno
+  - Cadena binaria que representa la asignación.
+  """
   defp assignment_to_binary(assignment, variables) do
     1..variables
     |> Enum.map(fn i -> Integer.to_string(Map.get(assignment, i, 0)) end)
     |> Enum.join()
   end
 
+  @doc """
+  Verifica si una asignación satisface todas las cláusulas del CNF.
+
+  ## Parámetros
+  - `clauses`: Lista de cláusulas.
+  - `assignment`: Mapa de asignaciones.
+
+  ## Retorno
+  - `true` si satisface todas las cláusulas, `false` en caso contrario.
+  """
   defp satisfies_all?(clauses, assignment) do
     Enum.all?(clauses, fn clause ->
       Enum.any?(clause, fn literal ->
@@ -119,6 +226,15 @@ defmodule CNFReaderV3 do
     end)
   end
 
+  @doc """
+  Genera un mensaje de texto a partir de una lista de cadenas binarias.
+
+  ## Parámetros
+  - `list`: Lista de cadenas binarias.
+
+  ## Retorno
+  - Cadena formateada con cada binario en una línea.
+  """
   defp generate_message(list) do
     list
     |> Enum.map(&String.graphemes/1)  # Divide cada string en caracteres
